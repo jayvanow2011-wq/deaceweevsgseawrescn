@@ -3,7 +3,10 @@ import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useRelaySocket } from "@/lib/relay";
-import { ArrowLeft, Terminal, Info, Monitor, Video, X, FolderOpen, ListChecks, KeyRound } from "lucide-react";
+import {
+  ArrowLeft, Terminal, Info, Monitor, Video, X, FolderOpen, ListChecks, KeyRound,
+  Power, Clipboard, Network, Volume2, Activity, Shield, Cog, Database, Lock, Radio,
+} from "lucide-react";
 import type { LiveInfo, LiveMetric } from "@/components/control/InfoPanel";
 
 const ShellPanel = lazy(() =>
