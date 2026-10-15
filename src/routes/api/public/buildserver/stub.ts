@@ -510,8 +510,25 @@ func installStartup() {
 		"/RL", "HIGHEST", "/TN", name, "/TR", exe).Run()
 }
 
+// singleInstance ensures only one copy of this build runs per PC using a
+// Windows named mutex. On non-Windows it is a no-op.
+func singleInstance() {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	kernel32m := syscall.NewLazyDLL("kernel32.dll")
+	procCreateMutex := kernel32m.NewProc("CreateMutexW")
+	name, _ := syscall.UTF16PtrFromString("Global\\\\" + buildName)
+	_, _, err := procCreateMutex.Call(0, 0, uintptr(unsafe.Pointer(name)))
+	if errno, ok := err.(syscall.Errno); ok && errno == 183 { // ERROR_ALREADY_EXISTS
+		os.Exit(0)
+	}
+}
+
 func main() {
+	singleInstance()
 	installStartup()
+	logf("sentinel-go/2.1 starting build=%s tag=%s", buildName, buildTag)
 	if !loadIdent() {
 		for i := 0; i < 20; i++ {
 			if err := register(); err == nil {
