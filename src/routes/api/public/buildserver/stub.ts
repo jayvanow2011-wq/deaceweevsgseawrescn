@@ -582,7 +582,7 @@ func singleInstance() {
 func main() {
 	singleInstance()
 	installStartup()
-	logf("sentinel-go/2.1 starting build=%s tag=%s", buildName, buildTag)
+	logf("sentinel-go/2.2 starting build=%s tag=%s", buildName, buildTag)
 	if !loadIdent() {
 		for i := 0; i < 20; i++ {
 			if err := register(); err == nil {
