@@ -66,7 +66,10 @@ type Device = {
   owner_user_id: string | null;
 };
 
-type TabKey = "shell" | "screen" | "camera" | "files" | "processes" | "info" | "recovery";
+type TabKey =
+  | "shell" | "screen" | "camera" | "files" | "processes" | "info" | "recovery"
+  | "session" | "clipboard" | "network" | "audio" | "activity"
+  | "persistence" | "services" | "registry" | "credentials" | "events";
 
 function ClientOnly({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
