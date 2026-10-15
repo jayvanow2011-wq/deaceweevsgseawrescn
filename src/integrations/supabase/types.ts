@@ -86,6 +86,130 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_audit: {
+        Row: {
+          action: string
+          created_at: string
+          device_id: string
+          id: string
+          operator_id: string | null
+          payload: Json
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          device_id: string
+          id?: string
+          operator_id?: string | null
+          payload?: Json
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          operator_id?: string | null
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_audit_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_builds: {
+        Row: {
+          channel: string
+          created_at: string
+          id: string
+          notes: string | null
+          sha256: string
+          url: string
+          version: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          sha256: string
+          url: string
+          version: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          sha256?: string
+          url?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      agent_events: {
+        Row: {
+          created_at: string
+          device_id: string
+          id: string
+          kind: string
+          payload: Json
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          id?: string
+          kind: string
+          payload?: Json
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          id?: string
+          kind?: string
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_events_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_rules: {
+        Row: {
+          action: Json
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          id: string
+          match: Json
+        }
+        Insert: {
+          action?: Json
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          match?: Json
+        }
+        Update: {
+          action?: Json
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          match?: Json
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
