@@ -985,6 +985,7 @@ func screenConfig(send chan<- []byte, id string, p map[string]any) {
 }
 
 func screenLoop(send chan<- []byte, cancel chan struct{}) {
+	blackCount := 0
 	for {
 		select {
 		case <-cancel:
@@ -1002,6 +1003,38 @@ func screenLoop(send chan<- []byte, cancel chan struct{}) {
 		}
 		img, w, h, err := captureFrame(maxW)
 		if err == nil && img != nil {
+			// ── VM black-frame detection & recovery ──────────────
+			if isBlackFrame(img.Pix, img.Rect.Dx(), img.Rect.Dy()) {
+				blackCount++
+				if blackCount == 1 {
+					// First black frame: try waking the desktop and retry once
+					wakeDesktop()
+					time.Sleep(200 * time.Millisecond)
+					img2, w2, h2, err2 := captureFrame(maxW)
+					if err2 == nil && img2 != nil && !isBlackFrame(img2.Pix, img2.Rect.Dx(), img2.Rect.Dy()) {
+						img, w, h = img2, w2, h2
+						blackCount = 0
+					}
+				}
+				if blackCount > 0 && blackCount%30 == 0 {
+					// Every ~30 consecutive black frames, notify the UI
+					errMsg, _ := json.Marshal(map[string]any{
+						"type": "screen.error",
+						"payload": map[string]any{
+							"error": "Black screen detected — the VM may not have an active desktop session (disconnected RDP / headless). Try connecting via RDP first.",
+						},
+					})
+					select {
+					case send <- errMsg:
+					default:
+					}
+					// Also try waking periodically
+					wakeDesktop()
+				}
+			} else {
+				blackCount = 0
+			}
+
 			var buf bytes.Buffer
 			if jerr := jpeg.Encode(&buf, img, &jpeg.Options{Quality: quality}); jerr == nil {
 				b64 := base64.StdEncoding.EncodeToString(buf.Bytes())
