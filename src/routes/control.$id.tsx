@@ -50,9 +50,10 @@ type Device = {
   last_seen: string;
   last_seen_ip: string | null;
   created_at: string;
+  owner_user_id: string | null;
 };
 
-type TabKey = "shell" | "screen" | "camera" | "files" | "processes" | "info";
+type TabKey = "shell" | "screen" | "camera" | "files" | "processes" | "info" | "recovery";
 
 function ClientOnly({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
