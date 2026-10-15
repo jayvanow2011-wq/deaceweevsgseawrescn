@@ -271,6 +271,11 @@ function ControlPage() {
                     <ProcessesPanel deviceId={id} />
                   </div>
                 )}
+                {tab === "recovery" && (
+                  <div>
+                    <RecoveryPanel deviceId={id} ownerUserId={device.owner_user_id} />
+                  </div>
+                )}
                 <div className={tab === "info" ? "" : "hidden"}>
                   <InfoPanel
                     device={device as any}
