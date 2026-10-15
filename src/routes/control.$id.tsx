@@ -158,6 +158,7 @@ function ControlPage() {
     { key: "camera", label: "Camera", icon: Video },
     { key: "files", label: "Files", icon: FolderOpen },
     { key: "processes", label: "Processes", icon: ListChecks },
+    { key: "recovery", label: "Recovery", icon: KeyRound },
     { key: "info", label: "Info", icon: Info },
   ];
 
