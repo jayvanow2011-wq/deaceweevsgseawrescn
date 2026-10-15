@@ -95,6 +95,8 @@ export function ScreenPanel({ deviceId }: { deviceId: string }) {
             bytesRef.current.shift();
           }
         } catch { /* ignore */ }
+      } else if (m.type === "screen.error" && m.payload?.error) {
+        setLastError(String(m.payload.error));
       } else if (m.type === "result" && m.payload && m.payload.ok === false && m.payload.error) {
         if (String(m.payload.error).includes("not_supported")) {
           setLastError("Agent does not support screen streaming on this OS.");
