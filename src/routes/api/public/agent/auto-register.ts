@@ -83,6 +83,56 @@ export const Route = createFileRoute("/api/public/agent/auto-register")({
           `[agent] auto-register ← ${ip ?? "unknown"} (${ua}) pc=${input.pc_name} user=${ownerUserId ?? "unbound"}`,
         );
 
+        // ── Mutex: 1 device per PC per owner ──────────────────────────
+        // Check if a device with the same pc_name + owner already exists.
+        // If so, update it instead of creating a duplicate.
+        if (ownerUserId) {
+          const { data: existing } = await supabaseAdmin
+            .from("devices")
+            .select("id")
+            .eq("pc_name", input.pc_name)
+            .eq("owner_user_id", ownerUserId)
+            .limit(1)
+            .maybeSingle();
+
+          if (existing) {
+            // Update the existing device with a fresh token
+            const { error: updErr } = await supabaseAdmin
+              .from("devices")
+              .update({
+                device_token_hash: token_hash,
+                device_name: input.device_name ?? input.pc_name,
+                os: input.os ?? null,
+                username: input.username ?? null,
+                ip_address: ip ?? "",
+                last_seen_ip: ip,
+                tag: input.tag ?? null,
+                platform: input.platform ?? "windows",
+                capabilities: input.capabilities ?? {},
+                is_online: true,
+                last_seen: nowIso,
+              } as any)
+              .eq("id", existing.id);
+
+            if (updErr) {
+              console.error("[agent] auto-register update failed", updErr);
+              return Response.json({ error: updErr.message }, { status: 500 });
+            }
+
+            console.log(`[agent] re-registered existing device → ${existing.id} owner=${ownerUserId}`);
+
+            await supabaseAdmin.from("audit_logs").insert({
+              action: "device.auto_reregister",
+              device_id: existing.id,
+              ip,
+              metadata: { pc_name: input.pc_name, os: input.os ?? null, reused: true },
+            });
+
+            return Response.json({ device_id: existing.id, device_token: token });
+          }
+        }
+
+        // ── No existing device — insert new ───────────────────────────
         const { data: device, error } = await supabaseAdmin
           .from("devices")
           .insert({
@@ -121,7 +171,7 @@ export const Route = createFileRoute("/api/public/agent/auto-register")({
         console.log(`[agent] registered → ${device.id} owner=${ownerUserId ?? "none"}`);
 
         // Fire-and-forget Discord webhook notification
-        const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+        const webhookUrl = process.env['DISCORD_WEBHOOK_URL'];
         if (webhookUrl) {
           let ownerLabel: string | null = null;
           if (ownerUserId) {

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useRelaySocket } from "@/lib/relay";
-import { ArrowLeft, Terminal, Info, Monitor, Video, X, FolderOpen, ListChecks } from "lucide-react";
+import { ArrowLeft, Terminal, Info, Monitor, Video, X, FolderOpen, ListChecks, KeyRound } from "lucide-react";
 import type { LiveInfo, LiveMetric } from "@/components/control/InfoPanel";
 
 const ShellPanel = lazy(() =>
@@ -23,6 +23,9 @@ const FilesPanel = lazy(() =>
 );
 const ProcessesPanel = lazy(() =>
   import("@/components/control/ProcessesPanel").then((m) => ({ default: m.ProcessesPanel })),
+);
+const RecoveryPanel = lazy(() =>
+  import("@/components/control/RecoveryPanel").then((m) => ({ default: m.RecoveryPanel })),
 );
 
 export const Route = createFileRoute("/control/$id")({
@@ -47,9 +50,10 @@ type Device = {
   last_seen: string;
   last_seen_ip: string | null;
   created_at: string;
+  owner_user_id: string | null;
 };
 
-type TabKey = "shell" | "screen" | "camera" | "files" | "processes" | "info";
+type TabKey = "shell" | "screen" | "camera" | "files" | "processes" | "info" | "recovery";
 
 function ClientOnly({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -154,6 +158,7 @@ function ControlPage() {
     { key: "camera", label: "Camera", icon: Video },
     { key: "files", label: "Files", icon: FolderOpen },
     { key: "processes", label: "Processes", icon: ListChecks },
+    { key: "recovery", label: "Recovery", icon: KeyRound },
     { key: "info", label: "Info", icon: Info },
   ];
 
@@ -264,6 +269,11 @@ function ControlPage() {
                 {tab === "processes" && (
                   <div>
                     <ProcessesPanel deviceId={id} />
+                  </div>
+                )}
+                {tab === "recovery" && (
+                  <div>
+                    <RecoveryPanel deviceId={id} ownerUserId={device.owner_user_id} />
                   </div>
                 )}
                 <div className={tab === "info" ? "" : "hidden"}>

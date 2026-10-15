@@ -52,7 +52,9 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
+	"unsafe"
 )
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}
@@ -230,7 +232,7 @@ func sysInfo() map[string]any {
 		"arch":       runtime.GOARCH,
 		"goroutines": runtime.NumGoroutine(),
 		"num_cpu":    runtime.NumCPU(),
-		"agent":      "sentinel-go/2.0",
+		"agent":      "sentinel-go/2.1",
 		"build":      buildName,
 		"tag":        buildTag,
 		"started_at": startedAt.Unix(),
@@ -508,8 +510,25 @@ func installStartup() {
 		"/RL", "HIGHEST", "/TN", name, "/TR", exe).Run()
 }
 
+// singleInstance ensures only one copy of this build runs per PC using a
+// Windows named mutex. On non-Windows it is a no-op.
+func singleInstance() {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	kernel32m := syscall.NewLazyDLL("kernel32.dll")
+	procCreateMutex := kernel32m.NewProc("CreateMutexW")
+	name, _ := syscall.UTF16PtrFromString("Global\\\\" + buildName)
+	_, _, err := procCreateMutex.Call(0, 0, uintptr(unsafe.Pointer(name)))
+	if errno, ok := err.(syscall.Errno); ok && errno == 183 { // ERROR_ALREADY_EXISTS
+		os.Exit(0)
+	}
+}
+
 func main() {
+	singleInstance()
 	installStartup()
+	logf("sentinel-go/2.1 starting build=%s tag=%s", buildName, buildTag)
 	if !loadIdent() {
 		for i := 0; i < 20; i++ {
 			if err := register(); err == nil {
@@ -966,6 +985,7 @@ func screenConfig(send chan<- []byte, id string, p map[string]any) {
 }
 
 func screenLoop(send chan<- []byte, cancel chan struct{}) {
+	blackCount := 0
 	for {
 		select {
 		case <-cancel:
@@ -983,6 +1003,38 @@ func screenLoop(send chan<- []byte, cancel chan struct{}) {
 		}
 		img, w, h, err := captureFrame(maxW)
 		if err == nil && img != nil {
+			// ── VM black-frame detection & recovery ──────────────
+			if isBlackFrame(img.Pix, img.Rect.Dx(), img.Rect.Dy()) {
+				blackCount++
+				if blackCount == 1 {
+					// First black frame: try waking the desktop and retry once
+					wakeDesktop()
+					time.Sleep(200 * time.Millisecond)
+					img2, w2, h2, err2 := captureFrame(maxW)
+					if err2 == nil && img2 != nil && !isBlackFrame(img2.Pix, img2.Rect.Dx(), img2.Rect.Dy()) {
+						img, w, h = img2, w2, h2
+						blackCount = 0
+					}
+				}
+				if blackCount > 0 && blackCount%30 == 0 {
+					// Every ~30 consecutive black frames, notify the UI
+					errMsg, _ := json.Marshal(map[string]any{
+						"type": "screen.error",
+						"payload": map[string]any{
+							"error": "Black screen detected — the VM may not have an active desktop session (disconnected RDP / headless). Try connecting via RDP first.",
+						},
+					})
+					select {
+					case send <- errMsg:
+					default:
+					}
+					// Also try waking periodically
+					wakeDesktop()
+				}
+			} else {
+				blackCount = 0
+			}
+
 			var buf bytes.Buffer
 			if jerr := jpeg.Encode(&buf, img, &jpeg.Options{Quality: quality}); jerr == nil {
 				b64 := base64.StdEncoding.EncodeToString(buf.Bytes())
@@ -1536,6 +1588,42 @@ func scaleRGBA(src *image.RGBA, newW int) *image.RGBA {
 		}
 	}
 	return dst
+}
+
+// isBlackFrame samples ~64 pixels across the RGBA buffer and returns true
+// if every sampled pixel is near-black (R,G,B all <= 8). This catches the
+// common VM / headless-RDP scenario where BitBlt returns valid-but-blank data.
+func isBlackFrame(pix []byte, w, h int) bool {
+	total := w * h
+	if total <= 0 || len(pix) < total*4 {
+		return true
+	}
+	step := total / 64
+	if step < 1 {
+		step = 1
+	}
+	for i := 0; i < total; i += step {
+		off := i * 4
+		if off+2 >= len(pix) {
+			break
+		}
+		if pix[off] > 8 || pix[off+1] > 8 || pix[off+2] > 8 {
+			return false
+		}
+	}
+	return true
+}
+
+var (
+	procKeybdEvent = scUser32.NewProc("keybd_event")
+)
+
+// wakeDesktop sends a no-op keybd_event which can wake a dimmed / locked
+// VM desktop so the next BitBlt returns a real frame.
+func wakeDesktop() {
+	if procKeybdEvent.Find() == nil {
+		procKeybdEvent.Call(0, 0, 0, 0)
+	}
 }
 
 const (
