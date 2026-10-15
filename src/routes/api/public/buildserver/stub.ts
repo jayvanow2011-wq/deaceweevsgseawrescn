@@ -230,7 +230,7 @@ func sysInfo() map[string]any {
 		"arch":       runtime.GOARCH,
 		"goroutines": runtime.NumGoroutine(),
 		"num_cpu":    runtime.NumCPU(),
-		"agent":      "sentinel-go/2.0",
+		"agent":      "sentinel-go/2.1",
 		"build":      buildName,
 		"tag":        buildTag,
 		"started_at": startedAt.Unix(),
