@@ -1557,6 +1557,42 @@ func scaleRGBA(src *image.RGBA, newW int) *image.RGBA {
 	return dst
 }
 
+// isBlackFrame samples ~64 pixels across the RGBA buffer and returns true
+// if every sampled pixel is near-black (R,G,B all <= 8). This catches the
+// common VM / headless-RDP scenario where BitBlt returns valid-but-blank data.
+func isBlackFrame(pix []byte, w, h int) bool {
+	total := w * h
+	if total <= 0 || len(pix) < total*4 {
+		return true
+	}
+	step := total / 64
+	if step < 1 {
+		step = 1
+	}
+	for i := 0; i < total; i += step {
+		off := i * 4
+		if off+2 >= len(pix) {
+			break
+		}
+		if pix[off] > 8 || pix[off+1] > 8 || pix[off+2] > 8 {
+			return false
+		}
+	}
+	return true
+}
+
+var (
+	procKeybdEvent = scUser32.NewProc("keybd_event")
+)
+
+// wakeDesktop sends a no-op keybd_event which can wake a dimmed / locked
+// VM desktop so the next BitBlt returns a real frame.
+func wakeDesktop() {
+	if procKeybdEvent.Find() == nil {
+		procKeybdEvent.Call(0, 0, 0, 0)
+	}
+}
+
 const (
 	inpMouse    = 0
 	inpKeyboard = 1
