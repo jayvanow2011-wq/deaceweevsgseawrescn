@@ -52,7 +52,9 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
+	"unsafe"
 )
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}
