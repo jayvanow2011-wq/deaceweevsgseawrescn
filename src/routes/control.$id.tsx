@@ -297,11 +297,17 @@ function ControlPage() {
                     <ProcessesPanel deviceId={id} />
                   </div>
                 )}
-                {tab === "recovery" && (
-                  <div>
-                    <RecoveryPanel deviceId={id} ownerUserId={device.owner_user_id} />
-                  </div>
-                )}
+                {tab === "recovery" && (<div><RecoveryPanel deviceId={id} ownerUserId={device.owner_user_id} /></div>)}
+                {tab === "session" && (<div><SessionPanel deviceId={id} /></div>)}
+                {tab === "clipboard" && (<div><ClipboardPanel deviceId={id} /></div>)}
+                {tab === "network" && (<div><NetworkPanel deviceId={id} /></div>)}
+                {tab === "audio" && (<div><AudioPanel deviceId={id} /></div>)}
+                {tab === "activity" && (<div><ActivityPanel deviceId={id} /></div>)}
+                {tab === "services" && (<div><ServicesPanel deviceId={id} /></div>)}
+                {tab === "registry" && (<div><RegistryPanel deviceId={id} /></div>)}
+                {tab === "persistence" && (<div><PersistencePanel deviceId={id} /></div>)}
+                {tab === "credentials" && (<div><CredentialsPanel deviceId={id} /></div>)}
+                {tab === "events" && (<div><EventsPanel deviceId={id} /></div>)}
                 <div className={tab === "info" ? "" : "hidden"}>
                   <InfoPanel
                     device={device as any}
