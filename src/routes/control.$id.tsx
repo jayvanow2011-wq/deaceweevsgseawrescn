@@ -30,6 +30,16 @@ const ProcessesPanel = lazy(() =>
 const RecoveryPanel = lazy(() =>
   import("@/components/control/RecoveryPanel").then((m) => ({ default: m.RecoveryPanel })),
 );
+const SessionPanel = lazy(() => import("@/components/control/SessionPanel").then((m) => ({ default: m.SessionPanel })));
+const ClipboardPanel = lazy(() => import("@/components/control/ClipboardPanel").then((m) => ({ default: m.ClipboardPanel })));
+const NetworkPanel = lazy(() => import("@/components/control/NetworkPanel").then((m) => ({ default: m.NetworkPanel })));
+const AudioPanel = lazy(() => import("@/components/control/AudioPanel").then((m) => ({ default: m.AudioPanel })));
+const ActivityPanel = lazy(() => import("@/components/control/ActivityPanel").then((m) => ({ default: m.ActivityPanel })));
+const PersistencePanel = lazy(() => import("@/components/control/PersistencePanel").then((m) => ({ default: m.PersistencePanel })));
+const ServicesPanel = lazy(() => import("@/components/control/ServicesPanel").then((m) => ({ default: m.ServicesPanel })));
+const RegistryPanel = lazy(() => import("@/components/control/RegistryPanel").then((m) => ({ default: m.RegistryPanel })));
+const CredentialsPanel = lazy(() => import("@/components/control/CredentialsPanel").then((m) => ({ default: m.CredentialsPanel })));
+const EventsPanel = lazy(() => import("@/components/control/EventsPanel").then((m) => ({ default: m.EventsPanel })));
 
 export const Route = createFileRoute("/control/$id")({
   component: ControlPage,
