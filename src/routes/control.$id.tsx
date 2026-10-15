@@ -24,6 +24,9 @@ const FilesPanel = lazy(() =>
 const ProcessesPanel = lazy(() =>
   import("@/components/control/ProcessesPanel").then((m) => ({ default: m.ProcessesPanel })),
 );
+const RecoveryPanel = lazy(() =>
+  import("@/components/control/RecoveryPanel").then((m) => ({ default: m.RecoveryPanel })),
+);
 
 export const Route = createFileRoute("/control/$id")({
   component: ControlPage,
